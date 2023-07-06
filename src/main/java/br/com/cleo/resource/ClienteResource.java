@@ -7,6 +7,8 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import br.com.cleo.dto.ClientDTO;
 import br.com.cleo.dto.ClientMapper;
 import br.com.cleo.model.Client;
+import io.quarkus.mongodb.panache.reactive.ReactivePanacheMongoEntityBase;
+import io.quarkus.mongodb.panache.reactive.ReactivePanacheQuery;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -72,17 +74,18 @@ public class ClienteResource {
                 });
     }
 
+
     @POST
     public Uni<Response> save(ClientDTO clientDTO) {
         return Client.find("name", clientDTO.name)
                 .firstResult()
                 .flatMap(existingClient -> {
                     if (existingClient != null) {
-                        // Já existe um cliente com o mesmo nome, retornar um erro de conflito
-                        return Uni.createFrom().failure(new WebApplicationException("Client with name "
-                                + clientDTO.name + " already exists",
-                                Response.status(Response.Status.CONFLICT).entity("{" + "\"error\":\"Client with name "
-                                        + clientDTO.name + " already exists\"" + "}").build()));
+                        // Já existe um cliente com o mesmo nome, atualizar o cliente
+                        return Uni.createFrom().item(() -> update((Client) existingClient, clientDTO))
+                                .onItem().transform(entity -> {
+                                    return Response.status(Response.Status.OK).entity(entity).build();
+                                });
 
                     } else {
                         // Não existe um cliente com o mesmo nome, realizar a conversão e persistência
@@ -95,6 +98,13 @@ public class ClienteResource {
                 });
     }
 
+    public Client update(Client client, ClientDTO clientDTO) {
+        client.name = clientDTO.name;
+        client.addLocations(clientDTO.lastLocation);
+        client.update().subscribe().asCompletionStage();
+        return client;
+    }
+
     @PUT
     @Path("/{id}")
     public Uni<Response> update(@PathParam("id") String id, ClientDTO clientDTO) {
@@ -103,7 +113,7 @@ public class ClienteResource {
         return client
                 .onItem().transform(c -> {
                     c.name = clientDTO.name;
-                    c.addLocations(clientDTO.locations);
+                    c.addLocations(clientDTO.lastLocation);
                     c.update().subscribe().asCompletionStage();
                     return c;
                 }).onItem().transform(entity -> {

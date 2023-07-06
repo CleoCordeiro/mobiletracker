@@ -1,6 +1,7 @@
 package br.com.cleo.model;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 import io.quarkus.mongodb.panache.common.MongoEntity;
@@ -11,12 +12,12 @@ public class Client extends ReactivePanacheMongoEntity implements Serializable {
 
     public String name;
 
-    public List<Location> locations;
+    public Location lastLocation;
 
-    public void addLocations(List<Location> locations2) {
-        locations2.forEach(location -> {
-            this.locations.add(location);
-        });
+    public List<Location> locations = new ArrayList<>();
+
+    public void addLocations(Location locations2) {
+        locations.add(locations2);
     }
 
 }
